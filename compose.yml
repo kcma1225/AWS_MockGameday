@@ -84,8 +84,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
-      NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL}
+      NEXT_PUBLIC_API_URL: ${API_URL}
+      NEXT_PUBLIC_WS_URL: ${WS_URL}
     depends_on:
       - backend
     volumes:
