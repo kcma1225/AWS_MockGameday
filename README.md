@@ -1,4 +1,4 @@
-![AWS Mock GameDay](docs/readme-assets/site_logo.png)
+![AWS Mock GameDay](.github/assets/site_logo.png)
 
 # AWS Mock GameDay
 
