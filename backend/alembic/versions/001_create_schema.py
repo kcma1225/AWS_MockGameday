@@ -32,7 +32,6 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("last_login_at", sa.DateTime(timezone=True), nullable=True),
     )
-    op.create_index("ix_admin_users_email", "admin_users", ["email"], unique=True)
 
     # events (with all feature toggles)
     op.create_table(
@@ -75,8 +74,6 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )
-    op.create_index("ix_events_public_event_id", "events", ["public_event_id"], unique=True)
-    op.create_index("ix_events_slug", "events", ["slug"], unique=True)
 
     # teams (with plaintext login code for admin visibility)
     op.create_table(
@@ -87,6 +84,7 @@ def upgrade() -> None:
         sa.Column("encoded_team_id_base64", sa.String(128), nullable=False),
         sa.Column("team_code_hash", sa.String(256), nullable=False),
         sa.Column("team_code_plaintext", sa.String(64), nullable=True),
+        sa.Column("challenge_token", sa.String(128), nullable=False, unique=True),
         sa.Column("team_name", sa.String(128), nullable=False),
         sa.Column("score_total", sa.Float, nullable=False, server_default="0"),
         sa.Column("trend_value", sa.Float, nullable=False, server_default="0"),
@@ -95,8 +93,6 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )
-    op.create_index("ix_teams_event_id", "teams", ["event_id"])
-    op.create_index("ix_teams_public_team_id", "teams", ["public_team_id"])
 
     # participants
     op.create_table(
@@ -114,7 +110,6 @@ def upgrade() -> None:
         sa.Column("last_seen_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )
-    op.create_index("ix_participants_team_id", "participants", ["team_id"])
 
     # modules
     op.create_table(
@@ -130,7 +125,6 @@ def upgrade() -> None:
         sa.Column("is_active", sa.Boolean, nullable=False, server_default="true"),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )
-    op.create_index("ix_modules_event_id", "modules", ["event_id"])
 
     # submissions
     op.create_table(
@@ -149,8 +143,6 @@ def upgrade() -> None:
         sa.Column("response_metadata_json", postgresql.JSONB, nullable=True),
         sa.Column("submitted_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )
-    op.create_index("ix_submissions_team_id", "submissions", ["team_id"])
-    op.create_index("ix_submissions_module_id", "submissions", ["module_id"])
 
     # score_events
     op.create_table(
@@ -167,9 +159,6 @@ def upgrade() -> None:
         sa.Column("category", sa.String(64), nullable=False, server_default="score"),
         sa.Column("metadata_json", postgresql.JSONB, nullable=True),
     )
-    op.create_index("ix_score_events_event_id", "score_events", ["event_id"])
-    op.create_index("ix_score_events_team_id", "score_events", ["team_id"])
-    op.create_index("ix_score_events_occurred_at", "score_events", ["occurred_at"])
 
     # sessions
     op.create_table(
@@ -183,16 +172,14 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
     )
-    op.create_index("ix_sessions_team_id", "sessions", ["team_id"])
-    op.create_index("ix_sessions_token_hash", "sessions", ["token_hash"])
 
     # shared_folder_files (for admin file sharing with teams)
     op.create_table(
         "shared_folder_files",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("event_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True),
+        sa.Column("event_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("events.id", ondelete="CASCADE"), nullable=False),
         sa.Column("original_filename", sa.String(512), nullable=False),
-        sa.Column("stored_filename", sa.String(512), nullable=False, unique=True, index=True),
+        sa.Column("stored_filename", sa.String(512), nullable=False, unique=True),
         sa.Column("file_size", sa.Integer(), nullable=False),
         sa.Column("mime_type", sa.String(128), nullable=False),
         sa.Column("uploaded_by_admin_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("admin_users.id", ondelete="SET NULL"), nullable=True),

@@ -42,6 +42,7 @@ export interface TeamDashboard {
   public_team_id: string;
   team_name: string;
   encoded_team_id_base64: string;
+  challenge_token: string;
   score_total: number;
   trend_value: number;
   rank_cache: number | null;

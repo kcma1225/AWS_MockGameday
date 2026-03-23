@@ -27,6 +27,7 @@ async def get_current_team(
         public_team_id=team.public_team_id,
         team_name=team.team_name,
         encoded_team_id_base64=team.encoded_team_id_base64,
+        challenge_token=team.challenge_token,
         score_total=team.score_total,
         trend_value=team.trend_value,
         rank_cache=team.rank_cache,

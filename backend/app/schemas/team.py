@@ -23,6 +23,7 @@ class TeamDashboard(BaseModel):
     public_team_id: str
     team_name: str
     encoded_team_id_base64: str
+    challenge_token: str
     score_total: float
     trend_value: float
     rank_cache: Optional[int]

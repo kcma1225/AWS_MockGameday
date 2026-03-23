@@ -34,6 +34,7 @@ export default function DashboardPage() {
   const [sharedError, setSharedError] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedToken, setCopiedToken] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -192,6 +193,29 @@ export default function DashboardPage() {
     }
   }
 
+  async function copyChallengeToken(token: string) {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText && window.isSecureContext) {
+        await navigator.clipboard.writeText(token);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = token;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "absolute";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+
+      setCopiedToken(true);
+      setTimeout(() => setCopiedToken(false), 2000);
+    } catch {
+      alert("Failed to copy token. Please try again.");
+    }
+  }
+
   function formatFileSize(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -275,6 +299,22 @@ export default function DashboardPage() {
                     {moduleTitle}
                   </h2>
                   <div className="flex items-center gap-5">
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 border border-[#d1d5db] rounded-md bg-[#f8fafc]">
+                      <span className="text-xs font-semibold tracking-wide text-[#475569]">TOKEN</span>
+                      <span className="font-mono text-xs text-[#0f172a] max-w-[220px] truncate" title={dashboard.challenge_token}>
+                        {dashboard.challenge_token}
+                      </span>
+                      <button
+                        onClick={() => void copyChallengeToken(dashboard.challenge_token)}
+                        className={`px-2 py-0.5 border rounded text-[11px] transition-colors ${
+                          copiedToken
+                            ? "border-[#4ade80] text-[#16a34a] bg-[#f0fdf4]"
+                            : "border-[#d1d5db] text-[#475569] hover:text-[#0f172a] hover:bg-[#ffffff]"
+                        }`}
+                      >
+                        {copiedToken ? "Copied!" : "Copy"}
+                      </button>
+                    </div>
                     <Link href="/readme" className="inline-flex items-center gap-1.5 text-base font-medium text-[#2563eb] hover:underline whitespace-nowrap">
                       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                         <circle cx="12" cy="12" r="10" />

@@ -24,6 +24,7 @@ async def _check_and_score(
     event_id: str,
     url: str | None,
     module_name: str,
+    challenge_token: str,
     timeout_ms: int = 5000,
 ):
     """Perform HTTP check and write score event to database."""
@@ -40,7 +41,10 @@ async def _check_and_score(
                 timeout=timeout_ms / 1000,
                 follow_redirects=False,
             ) as client:
-                response = await client.get(url)
+                response = await client.get(
+                    url,
+                    headers={"X-Gameday-Token": challenge_token},
+                )
                 latency_ms = (time.monotonic() - start) * 1000
                 status_code = response.status_code
         except httpx.TimeoutException:
@@ -111,6 +115,7 @@ def check_endpoint(
     event_id: str,
     url: str | None,
     module_name: str,
+    challenge_token: str,
     timeout_ms: int = 5000,
 ):
     """Celery task: check a team's endpoint and record a score event."""
@@ -122,6 +127,7 @@ def check_endpoint(
                 event_id=event_id,
                 url=url,
                 module_name=module_name,
+                challenge_token=challenge_token,
                 timeout_ms=timeout_ms,
             )
         )

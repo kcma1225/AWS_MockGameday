@@ -33,6 +33,14 @@ from app.services.websocket_manager import manager
 router = APIRouter()
 
 
+async def _generate_unique_challenge_token(db: AsyncSession) -> str:
+    while True:
+        candidate = secrets.token_hex(24)
+        existing = await db.execute(select(Team.id).where(Team.challenge_token == candidate))
+        if existing.scalar_one_or_none() is None:
+            return candidate
+
+
 def _public_event_id(title: str, event_id: str) -> str:
     suffix = str(event_id)[:8].upper()
     prefix = "".join(c for c in title.upper() if c.isalnum())[:8]
@@ -461,6 +469,7 @@ async def create_teams_bulk(
             encoded_team_id_base64=encoded,
             team_code_hash=hash_code(login_code),
             team_code_plaintext=login_code,
+            challenge_token=await _generate_unique_challenge_token(db),
             team_name=team_name,
         )
         db.add(team)
@@ -803,6 +812,7 @@ async def trigger_challenge_round(
                             "event_id": str(event_id),
                             "url": latest_submission_map[(module.id, team.id)],
                             "module_name": module.name,
+                            "challenge_token": team.challenge_token,
                         },
                         queue="scoring",
                         countdown=second_offset,

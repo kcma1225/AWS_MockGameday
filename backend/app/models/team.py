@@ -21,6 +21,7 @@ class Team(Base):
     encoded_team_id_base64: Mapped[str] = mapped_column(String(128), nullable=False)
     team_code_hash: Mapped[str] = mapped_column(String(256), nullable=False)
     team_code_plaintext: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    challenge_token: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
     team_name: Mapped[str] = mapped_column(String(128), nullable=False)
     score_total: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     trend_value: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)

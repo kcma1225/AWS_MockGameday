@@ -591,6 +591,12 @@ function TeamsPanel({
     }
   }
 
+  function closeEditTeamNameModal() {
+    if (savingTeamId) return;
+    setEditingTeamId(null);
+    setEditingName("");
+  }
+
   async function handleRegenerate(teamId: string) {
     if (!confirm("Regenerate this team's login code? The current code will stop working.")) {
       return;
@@ -664,38 +670,9 @@ function TeamsPanel({
                 {teams.map((team) => {
                   const displayCode = newCodes[team.id] ?? team.login_code;
                   const isNew = !!newCodes[team.id];
-                  const isEditing = editingTeamId === team.id;
                   return (
                     <tr key={team.id} className="border-b border-[#f1f5f9] hover:bg-[#f8fafc]">
-                      <td className="px-4 py-2.5 text-[#0f172a]">
-                        {isEditing ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              value={editingName}
-                              onChange={(e) => setEditingName(e.target.value)}
-                              className="input-field text-sm"
-                            />
-                            <button
-                              onClick={() => handleSaveTeamName(team.id)}
-                              disabled={savingTeamId === team.id}
-                              className="px-2 py-1 border border-[#4ade80] text-[#16a34a] rounded text-[11px] hover:bg-[#f0fdf4] transition-colors disabled:opacity-50"
-                            >
-                              Save
-                            </button>
-                            <button
-                              onClick={() => {
-                                setEditingTeamId(null);
-                                setEditingName("");
-                              }}
-                              className="px-2 py-1 border border-[#d1d5db] text-[#64748b] rounded text-[11px] hover:bg-[#f8fafc] transition-colors"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        ) : (
-                          team.team_name
-                        )}
-                      </td>
+                      <td className="px-4 py-2.5 text-[#0f172a]">{team.team_name}</td>
                       <td className="px-4 py-2.5 text-[#475569] font-mono text-xs">{team.public_team_id}</td>
                       <td className="px-4 py-2.5 text-[#0f172a]">{Number(team.score_total ?? 0).toFixed(4)}</td>
                       <td className="px-4 py-2.5">
@@ -719,17 +696,15 @@ function TeamsPanel({
                       </td>
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-2 justify-end">
-                          {!isEditing && (
-                            <button
-                              onClick={() => {
-                                setEditingTeamId(team.id);
-                                setEditingName(team.team_name);
-                              }}
-                              className="text-xs px-2.5 py-1 border border-[#d1d5db] hover:border-[#60a5fa] text-[#64748b] hover:text-[#2563eb] rounded transition-colors"
-                            >
-                              Edit Name
-                            </button>
-                          )}
+                          <button
+                            onClick={() => {
+                              setEditingTeamId(team.id);
+                              setEditingName(team.team_name);
+                            }}
+                            className="text-xs px-2.5 py-1 border border-[#d1d5db] hover:border-[#60a5fa] text-[#64748b] hover:text-[#2563eb] rounded transition-colors"
+                          >
+                            Edit Name
+                          </button>
                           <button
                             onClick={() => handleRegenerate(team.id)}
                             disabled={regeneratingId === team.id}
@@ -754,6 +729,58 @@ function TeamsPanel({
           </div>
         )}
       </div>
+
+      {editingTeamId && (
+        <div
+          className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeEditTeamNameModal();
+          }}
+        >
+          <div className="w-full max-w-md bg-[#ffffff] border border-[#d1d5db] rounded-lg shadow-xl">
+            <div className="px-5 py-4 border-b border-[#d1d5db] flex items-center justify-between">
+              <h3 className="text-[#0f172a] font-semibold text-base">Edit Team Name</h3>
+              <button
+                onClick={closeEditTeamNameModal}
+                disabled={!!savingTeamId}
+                className="text-[#dc2626] hover:text-[#991b1b] text-xl font-bold leading-none w-6 h-6 flex items-center justify-center rounded hover:bg-[#fee2e2] transition-colors disabled:opacity-50"
+                title="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <label className="block text-sm text-[#475569]">
+                Team Name
+                <input
+                  value={editingName}
+                  onChange={(e) => setEditingName(e.target.value)}
+                  className="mt-2 input-field text-sm"
+                  autoFocus
+                />
+              </label>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={closeEditTeamNameModal}
+                  disabled={!!savingTeamId}
+                  className="px-4 py-2 border border-[#d1d5db] rounded text-sm text-[#475569] hover:bg-[#f8fafc] transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => void handleSaveTeamName(editingTeamId)}
+                  disabled={!!savingTeamId}
+                  className="px-4 py-2 bg-[#4ade80] hover:bg-[#22c55e] text-black font-semibold rounded text-sm transition-colors disabled:opacity-50"
+                >
+                  {savingTeamId ? "Saving..." : "Confirm"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isAddOpen && (
         <div

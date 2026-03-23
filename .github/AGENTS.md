@@ -52,12 +52,15 @@ Required examples in this project:
     - `/api/shared-folder/files/{file_id}/download`
     - `/api/shared-folder/files/{file_id}/content`
 
-## 4) Database Migration Policy (Current Project Workflow)
+## 4) Database Workflow Policy (No Versioning)
 
-- This project currently uses consolidated schema workflow for fresh restarts.
-- `backend/alembic/versions/001_initial_schema.py` is the primary full schema migration.
-- New schema changes should be reflected consistently with this restart-based workflow.
-- Do not re-introduce scattered incremental migration logic without explicit team decision.
+- This project uses a reset-based DB workflow. Containers and DB volume are deleted between iterations.
+- Do not introduce incremental migration versioning (no `004+`, no scattered one-off migrations).
+- Always overwrite and maintain the fixed 3-file structure:
+  - `001_create_schema.py`: create/update table schema only
+  - `002_insert_seed.py`: insert seed data (re-runnable/predictable)
+  - `003_create_db_objects.py`: create non-table DB objects (indexes/views/functions/triggers)
+- For any future DB schema/data changes, directly update these fixed files instead of creating new version files.
 
 ## 5) Feature Toggle Behavior
 
