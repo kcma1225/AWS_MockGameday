@@ -47,6 +47,9 @@ celerybeat.pid
 # Docker
 .docker/
 
+# Shared folder uploads
+shared_folders/
+
 # macOS
 .DS_Store
 .AppleDouble
