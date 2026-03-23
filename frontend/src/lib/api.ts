@@ -339,3 +339,67 @@ export async function adminCreateUser(data: Record<string, unknown>) {
   }
   return res.json();
 }
+
+// ---- Shared Folder ----
+
+export async function adminUploadSharedFile(eventId: string, file: File) {
+  const token = getAdminToken();
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_URL}/api/admin/events/${eventId}/shared-folder/upload`, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to upload file");
+  }
+  return res.json();
+}
+
+export async function adminListSharedFiles(eventId: string) {
+  const res = await adminFetch(`/api/admin/events/${eventId}/shared-folder/files`);
+  if (!res.ok) throw new Error("Failed to load shared files");
+  return res.json();
+}
+
+export async function adminDeleteSharedFile(eventId: string, fileId: string) {
+  const res = await adminFetch(`/api/admin/events/${eventId}/shared-folder/files/${fileId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to delete file");
+  return res.json();
+}
+
+export async function teamListSharedFiles() {
+  const res = await fetchWithAuth("/api/shared-folder/files");
+  if (!res.ok) throw new Error("Failed to load shared files");
+  return res.json();
+}
+
+export async function teamDownloadSharedFile(fileId: string) {
+  const res = await fetchWithAuth(`/api/shared-folder/files/${fileId}/download`);
+  if (!res.ok) throw new Error("Failed to get download link");
+  return res.json();
+}
+
+export async function teamDownloadSharedFileContent(fileId: string) {
+  const res = await fetchWithAuth(`/api/shared-folder/files/${fileId}/content`);
+  if (!res.ok) throw new Error("Failed to download file");
+
+  const blob = await res.blob();
+  const disposition = res.headers.get("Content-Disposition") || "";
+  const fallbackName = `file-${fileId}`;
+  const filenameMatch = disposition.match(/filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i);
+  const rawName = filenameMatch?.[1] || filenameMatch?.[2] || fallbackName;
+  const filename = decodeURIComponent(rawName);
+
+  return { blob, filename };
+}

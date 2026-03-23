@@ -9,6 +9,32 @@ from app.database import Base
 import enum
 
 
+class SharedFolderFile(Base):
+    """Tracks files shared by admins with teams in an event."""
+    __tablename__ = "shared_folder_files"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    event_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    original_filename: Mapped[str] = mapped_column(String(512), nullable=False)
+    stored_filename: Mapped[str] = mapped_column(String(512), nullable=False, unique=True, index=True)
+    file_size: Mapped[int] = mapped_column(nullable=False)
+    mime_type: Mapped[str] = mapped_column(String(128), nullable=False)
+    uploaded_by_admin_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("admin_users.id", ondelete="SET NULL"), nullable=True
+    )
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+    # Relationships
+    event: Mapped["Event"] = relationship("Event", back_populates="shared_folder_files", lazy="select")  # noqa: F821
+    uploaded_by: Mapped["AdminUser | None"] = relationship("AdminUser", lazy="select")  # noqa: F821
+
+
 class EventStatus(str, enum.Enum):
     draft = "draft"
     live = "live"
@@ -46,6 +72,8 @@ class Event(Base):
         UUID(as_uuid=True), ForeignKey("admin_users.id", ondelete="SET NULL"), nullable=True
     )
     scoreboard_public: Mapped[bool] = mapped_column(default=True, nullable=False)
+    root_url_detection_enabled: Mapped[bool] = mapped_column(default=True, nullable=False)
+    shared_folder_enabled: Mapped[bool] = mapped_column(default=True, nullable=False)
     show_aws_console_button: Mapped[bool] = mapped_column(default=False, nullable=False)
     show_ssh_key_button: Mapped[bool] = mapped_column(default=False, nullable=False)
     testing_rounds: Mapped[list[dict[str, int | str]]] = mapped_column(
@@ -65,4 +93,5 @@ class Event(Base):
     teams: Mapped[list["Team"]] = relationship("Team", back_populates="event", lazy="select", passive_deletes=True)  # noqa: F821
     modules: Mapped[list["Module"]] = relationship("Module", back_populates="event", lazy="select", passive_deletes=True)  # noqa: F821
     score_events: Mapped[list["ScoreEvent"]] = relationship("ScoreEvent", back_populates="event", lazy="select", passive_deletes=True)  # noqa: F821
+    shared_folder_files: Mapped[list["SharedFolderFile"]] = relationship("SharedFolderFile", back_populates="event", lazy="select", passive_deletes=True)  # noqa: F821
     created_by: Mapped["AdminUser | None"] = relationship("AdminUser", lazy="select")  # noqa: F821

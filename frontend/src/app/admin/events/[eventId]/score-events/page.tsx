@@ -5,8 +5,8 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import useSWR from "swr";
-import { getAdminToken, clearAdminToken, adminGetEventScoreEvents } from "@/lib/api";
-import { AdminScoreEventPage } from "@/types";
+import { getAdminToken, clearAdminToken, adminGetEvent, adminGetEventScoreEvents } from "@/lib/api";
+import { AdminEvent, AdminScoreEventPage } from "@/types";
 
 const CATEGORY_COLORS: Record<string, string> = {
   score: "text-[#16a34a]",
@@ -39,6 +39,12 @@ export default function AdminEventScoreEventsPage() {
     { refreshInterval: 1000 }
   );
 
+  const { data: event } = useSWR<AdminEvent>(
+    eventId ? `admin-event-header-${eventId}` : null,
+    () => adminGetEvent(eventId),
+    { revalidateOnFocus: false }
+  );
+
   useEffect(() => {
     const timer = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(timer);
@@ -60,6 +66,17 @@ export default function AdminEventScoreEventsPage() {
             <Link href={`/admin/events/${eventId}`} className="text-[#475569] hover:text-[#0f172a] text-xs uppercase tracking-wide">Event</Link>
             <Link href={`/admin/events/${eventId}/scoreboard`} className="text-[#475569] hover:text-[#0f172a] text-xs uppercase tracking-wide">Scoreboard</Link>
             <Link href={`/admin/events/${eventId}/score-events`} className="text-[#0f172a] font-semibold text-xs uppercase tracking-wide">Score Events</Link>
+            {event?.shared_folder_enabled && (
+              <Link
+                href={`/admin/events/${eventId}/shared-folder`}
+                className="text-[#475569] hover:text-[#0f172a] text-xs uppercase tracking-wide inline-flex items-center gap-1.5"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                </svg>
+                Shared Folder
+              </Link>
+            )}
           </div>
           <button onClick={handleLogout} className="text-[#475569] hover:text-[#f87171] text-xs uppercase tracking-wide transition-colors">Logout</button>
         </div>

@@ -34,7 +34,10 @@ def _is_private_ip(ip_str: str) -> bool:
         return True  # Fail safe
 
 
-def validate_submission_url(url: str) -> tuple[bool, str, str | None]:
+def validate_submission_url(
+    url: str,
+    enforce_root_only: bool = False,
+) -> tuple[bool, str, str | None]:
     """
     Validate a submitted URL for safety and correctness.
 
@@ -78,6 +81,15 @@ def validate_submission_url(url: str) -> tuple[bool, str, str | None]:
     for blocked_path in BLOCKED_METADATA_PATHS:
         if path.startswith(blocked_path):
             return False, "This URL path is not allowed", None
+
+    if enforce_root_only:
+        # Root-only means scheme + host (+ optional port), optionally trailing slash.
+        if path not in ("", "/"):
+            return False, "Only root URLs are allowed (for example: https://example.com)", None
+        if parsed.query:
+            return False, "Query strings are not allowed in root-only mode", None
+        if parsed.fragment:
+            return False, "URL fragments are not allowed in root-only mode", None
 
     # Try to resolve as IP first
     try:

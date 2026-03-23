@@ -26,6 +26,12 @@ export default function ScoreboardPage() {
 
   const { data: dashboard } = useSWR("team-dashboard-sb", () => getTeamDashboard());
 
+  useEffect(() => {
+    if (dashboard && dashboard.scoreboard_public === false) {
+      router.replace("/dashboard");
+    }
+  }, [dashboard, router]);
+
   const handleWsMessage = useCallback(
     (msg: WSMessage) => {
       if (msg.type === "scoreboard.updated") {
@@ -36,6 +42,10 @@ export default function ScoreboardPage() {
   );
 
   const { connected } = useWebSocket(handleWsMessage);
+
+  if (dashboard && dashboard.scoreboard_public === false) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a]">

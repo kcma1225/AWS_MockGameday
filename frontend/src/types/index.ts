@@ -51,6 +51,9 @@ export interface TeamDashboard {
   event_status: EventStatus;
   event_start_time: string | null;
   event_end_time: string | null;
+  scoreboard_public: boolean;
+  root_url_detection_enabled: boolean;
+  shared_folder_enabled: boolean;
   show_aws_console_button: boolean;
   show_ssh_key_button: boolean;
 }
@@ -141,6 +144,8 @@ export interface AdminEvent {
   end_time: string | null;
   timezone: string;
   scoreboard_public: boolean;
+  root_url_detection_enabled: boolean;
+  shared_folder_enabled: boolean;
   show_aws_console_button: boolean;
   show_ssh_key_button: boolean;
   readme_markdown: string | null;
@@ -230,6 +235,20 @@ export interface AdminScoreboardRow {
 export interface AdminScoreboard {
   updated_at: string;
   rows: AdminScoreboardRow[];
+}
+
+// ---- Shared Folder ----
+
+export interface SharedFolderFileItem {
+  id: string;
+  original_filename: string;
+  file_size: number;
+  mime_type: string;
+  uploaded_at: string;
+}
+
+export interface TeamSharedFilesResponse {
+  files: SharedFolderFileItem[];
 }
 
 // ---- WebSocket Events ----

@@ -1,9 +1,11 @@
-"""Initial schema
+"""Initial schema with all tables and fields
 
 Revision ID: 001
 Revises: 
 Create Date: 2026-03-12
 
+All tables created in one migration for clean restart workflow.
+Includes base schema plus feature toggles and shared folder support.
 """
 from typing import Sequence, Union
 
@@ -32,7 +34,7 @@ def upgrade() -> None:
     )
     op.create_index("ix_admin_users_email", "admin_users", ["email"], unique=True)
 
-    # events
+    # events (with all feature toggles)
     op.create_table(
         "events",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
@@ -52,16 +54,31 @@ def upgrade() -> None:
         sa.Column("readme_markdown", sa.Text, nullable=True),
         sa.Column("runbook_markdown", sa.Text, nullable=True),
         sa.Column("created_by_admin_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("admin_users.id", ondelete="SET NULL"), nullable=True),
+        # Feature toggles
         sa.Column("scoreboard_public", sa.Boolean, nullable=False, server_default="true"),
+        sa.Column("root_url_detection_enabled", sa.Boolean, nullable=False, server_default="true"),
+        sa.Column("shared_folder_enabled", sa.Boolean, nullable=False, server_default="true"),
         sa.Column("show_aws_console_button", sa.Boolean, nullable=False, server_default="false"),
         sa.Column("show_ssh_key_button", sa.Boolean, nullable=False, server_default="false"),
+        # Testing configuration
+        sa.Column(
+            "testing_rounds",
+            sa.JSON(),
+            nullable=False,
+            server_default=sa.text(
+                "'[{\"name\": \"Warmup\", \"requests_per_second\": 1, \"duration_seconds\": 1}, "
+                "{\"name\": \"Qualification\", \"requests_per_second\": 5, \"duration_seconds\": 10}, "
+                "{\"name\": \"Pressure\", \"requests_per_second\": 10, \"duration_seconds\": 20}]'::json"
+            ),
+        ),
+        # Timestamps
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )
     op.create_index("ix_events_public_event_id", "events", ["public_event_id"], unique=True)
     op.create_index("ix_events_slug", "events", ["slug"], unique=True)
 
-    # teams
+    # teams (with plaintext login code for admin visibility)
     op.create_table(
         "teams",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
@@ -69,6 +86,7 @@ def upgrade() -> None:
         sa.Column("public_team_id", sa.String(64), nullable=False),
         sa.Column("encoded_team_id_base64", sa.String(128), nullable=False),
         sa.Column("team_code_hash", sa.String(256), nullable=False),
+        sa.Column("team_code_plaintext", sa.String(64), nullable=True),
         sa.Column("team_name", sa.String(128), nullable=False),
         sa.Column("score_total", sa.Float, nullable=False, server_default="0"),
         sa.Column("trend_value", sa.Float, nullable=False, server_default="0"),
@@ -168,8 +186,22 @@ def upgrade() -> None:
     op.create_index("ix_sessions_team_id", "sessions", ["team_id"])
     op.create_index("ix_sessions_token_hash", "sessions", ["token_hash"])
 
+    # shared_folder_files (for admin file sharing with teams)
+    op.create_table(
+        "shared_folder_files",
+        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column("event_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True),
+        sa.Column("original_filename", sa.String(512), nullable=False),
+        sa.Column("stored_filename", sa.String(512), nullable=False, unique=True, index=True),
+        sa.Column("file_size", sa.Integer(), nullable=False),
+        sa.Column("mime_type", sa.String(128), nullable=False),
+        sa.Column("uploaded_by_admin_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("admin_users.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("uploaded_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+    )
+
 
 def downgrade() -> None:
+    op.drop_table("shared_folder_files")
     op.drop_table("sessions")
     op.drop_table("score_events")
     op.drop_table("submissions")

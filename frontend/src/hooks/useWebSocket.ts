@@ -4,7 +4,10 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import { getToken } from "@/lib/auth";
 import { WSMessage } from "@/types";
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL;
+if (!WS_URL) {
+  throw new Error("Missing required env var NEXT_PUBLIC_WS_URL");
+}
 const RECONNECT_DELAY_MS = 3000;
 const PING_INTERVAL_MS = 30000;
 

@@ -143,6 +143,8 @@ async def list_events(
                 end_time=ev.end_time,
                 timezone=ev.timezone,
                 scoreboard_public=ev.scoreboard_public,
+                root_url_detection_enabled=ev.root_url_detection_enabled,
+                shared_folder_enabled=ev.shared_folder_enabled,
                 show_aws_console_button=ev.show_aws_console_button,
                 show_ssh_key_button=ev.show_ssh_key_button,
                 readme_markdown=ev.readme_markdown,
@@ -179,6 +181,8 @@ async def create_event(
         readme_markdown=body.readme_markdown or "# Challenge\n\nAdmin will provide a default binary server file for setup.\nAfter deployment, submit one service URL and keep it healthy with low latency.\n\nScoring:\n- Failed request: -5 points\n- Success: points based on latency (lower is better)",
         runbook_markdown=None,
         scoreboard_public=body.scoreboard_public,
+        root_url_detection_enabled=body.root_url_detection_enabled,
+        shared_folder_enabled=body.shared_folder_enabled,
         show_aws_console_button=body.show_aws_console_button,
         show_ssh_key_button=body.show_ssh_key_button,
         created_by_admin_id=admin.id,
@@ -210,6 +214,8 @@ async def create_event(
         end_time=event.end_time,
         timezone=event.timezone,
         scoreboard_public=event.scoreboard_public,
+        root_url_detection_enabled=event.root_url_detection_enabled,
+        shared_folder_enabled=event.shared_folder_enabled,
         show_aws_console_button=event.show_aws_console_button,
         show_ssh_key_button=event.show_ssh_key_button,
         readme_markdown=event.readme_markdown,
@@ -248,7 +254,7 @@ async def get_event(
         end_time=event.end_time,
         timezone=event.timezone,
         scoreboard_public=event.scoreboard_public,
-        show_aws_console_button=event.show_aws_console_button,
+        root_url_detection_enabled=event.root_url_detection_enabled,        shared_folder_enabled=event.shared_folder_enabled,        show_aws_console_button=event.show_aws_console_button,
         show_ssh_key_button=event.show_ssh_key_button,
         readme_markdown=event.readme_markdown,
         runbook_markdown=event.runbook_markdown,
@@ -292,6 +298,8 @@ async def update_event(
         end_time=event.end_time,
         timezone=event.timezone,
         scoreboard_public=event.scoreboard_public,
+        root_url_detection_enabled=event.root_url_detection_enabled,
+        shared_folder_enabled=event.shared_folder_enabled,
         show_aws_console_button=event.show_aws_console_button,
         show_ssh_key_button=event.show_ssh_key_button,
         readme_markdown=event.readme_markdown,
@@ -309,10 +317,18 @@ async def delete_event(
     admin=Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    import shutil
+    from pathlib import Path
+
     result = await db.execute(select(Event).where(Event.id == event_id))
     event = result.scalar_one_or_none()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
+
+    # Delete shared folder if it exists
+    shared_folder = Path("shared_folders") / str(event_id)
+    if shared_folder.exists():
+        shutil.rmtree(shared_folder)
 
     await db.delete(event)
     await db.flush()

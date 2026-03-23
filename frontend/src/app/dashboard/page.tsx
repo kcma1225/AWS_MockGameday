@@ -8,8 +8,17 @@ import Image from "next/image";
 
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { clearToken, isAuthenticated } from "@/lib/auth";
-import { getTeamDashboard, getModules, getModuleStatus, logout, submitModuleUrl } from "@/lib/api";
-import { TeamDashboard, Module, ModuleStatus, WSMessage, EventStatus } from "@/types";
+import {
+  getTeamDashboard,
+  getModules,
+  getModuleStatus,
+  logout,
+  submitModuleUrl,
+  teamListSharedFiles,
+  teamDownloadSharedFileContent,
+} from "@/lib/api";
+import { isRootUrl } from "@/lib/url";
+import { TeamDashboard, Module, ModuleStatus, WSMessage, SharedFolderFileItem, TeamSharedFilesResponse } from "@/types";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -18,6 +27,11 @@ export default function DashboardPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [sharedModalOpen, setSharedModalOpen] = useState(false);
+  const [sharedFiles, setSharedFiles] = useState<SharedFolderFileItem[]>([]);
+  const [sharedLoading, setSharedLoading] = useState(false);
+  const [sharedError, setSharedError] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -81,6 +95,9 @@ export default function DashboardPage() {
   const rank = liveData.rank_cache ?? dashboard.rank_cache;
   const eventIsRunning = dashboard.event_status === "live";
   const selectedModule = modules?.[0];
+  const moduleTitle = selectedModule?.name === "Service Endpoint"
+    ? "Order Processor"
+    : (selectedModule?.name || "Order Processor");
   const selectedStatus = selectedModule
     ? moduleStatuses?.find((s) => s.module_id === selectedModule.id)
     : undefined;
@@ -97,6 +114,13 @@ export default function DashboardPage() {
   async function handleSubmitEndpoint(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedModule) return;
+
+    if (dashboard?.root_url_detection_enabled && !isRootUrl(url)) {
+      setSubmitError("Only root URLs are allowed, for example: https://example.com or http://66.71.42.14");
+      setSubmitSuccess(false);
+      return;
+    }
+
     setSubmitting(true);
     setSubmitError(null);
     setSubmitSuccess(false);
@@ -109,6 +133,45 @@ export default function DashboardPage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function openSharedFolderModal() {
+    setSharedModalOpen(true);
+    setSharedLoading(true);
+    setSharedError(null);
+    try {
+      const data: TeamSharedFilesResponse = await teamListSharedFiles();
+      setSharedFiles(data.files || []);
+    } catch (err) {
+      setSharedError(err instanceof Error ? err.message : "Failed to load shared files");
+    } finally {
+      setSharedLoading(false);
+    }
+  }
+
+  async function downloadSharedFile(fileId: string) {
+    setDownloadingId(fileId);
+    try {
+      const { blob, filename } = await teamDownloadSharedFileContent(fileId);
+      const urlObject = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = urlObject;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(urlObject);
+    } catch (err) {
+      setSharedError(err instanceof Error ? err.message : "Download failed");
+    } finally {
+      setDownloadingId(null);
+    }
+  }
+
+  function formatFileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
   return (
@@ -124,6 +187,11 @@ export default function DashboardPage() {
               priority
               className="h-9 w-auto"
             />
+            <span className="ml-2 text-[#2563eb]" aria-hidden="true">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+            </span>
           </Link>
           <div className="flex items-center gap-6 text-[#334155] text-sm font-medium leading-none">
             <button onClick={handleLogout} className="hover:text-[#0f172a]">Logout</button>
@@ -146,9 +214,19 @@ export default function DashboardPage() {
 
             <section className="max-w-[900px] mx-auto border border-[#d1d5db] rounded-sm bg-[#ffffff]">
               <div className="border-b border-[#d1d5db] px-4 py-3 flex flex-wrap gap-2">
-                <GameButton label="Set Team Name" href="#" accent="green" />
                 <GameButton label="Score Events" href="/score-events" />
-                <GameButton label="Scoreboard" href="/scoreboard" />
+                {dashboard.scoreboard_public && <GameButton label="Scoreboard" href="/scoreboard" />}
+                {dashboard.shared_folder_enabled && (
+                  <button
+                    onClick={() => void openSharedFolderModal()}
+                    className="ml-auto px-4 py-2 rounded-sm border border-[#60a5fa] text-sm font-medium text-[#2563eb] hover:bg-[#eff6ff] hover:border-[#3b82f6] inline-flex items-center gap-1.5"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                    </svg>
+                    Shared Folder
+                  </button>
+                )}
                 {dashboard.show_aws_console_button && <GameButton label="AWS Console" href="#" />}
                 {dashboard.show_ssh_key_button && <GameButton label="SSH Key" href="#" />}
               </div>
@@ -167,39 +245,53 @@ export default function DashboardPage() {
             <div className="mt-10">
               <DividerTitle title="Modules" />
 
-              <section className="max-w-[900px] mx-auto border border-[#d1d5db] rounded-sm bg-[#ffffff] p-5">
-                <div className="flex items-center justify-between mb-5">
-                  <h2 className="text-2xl font-semibold text-[#111827]">
-                    {selectedModule?.name || "Service Endpoint"}
+              <section className="max-w-[900px] mx-auto border border-[#d1d5db] rounded-xl bg-[#ffffff] overflow-hidden shadow-sm">
+                <div className="px-6 py-5 border-b border-[#e5e7eb] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+                  <h2 className="text-[#0f172a] font-semibold text-xl leading-tight">
+                    {moduleTitle}
                   </h2>
-                  <Link href="/readme" className="text-sm text-[#2563eb] hover:underline">Readme</Link>
+                  <div className="flex items-center gap-5">
+                    <Link href="/readme" className="inline-flex items-center gap-1.5 text-base font-medium text-[#2563eb] hover:underline whitespace-nowrap">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                      Readme
+                    </Link>
+                  </div>
                 </div>
 
-                <div className="text-lg font-semibold text-[#111827] mb-2">Outputs:</div>
-                <div className="text-base text-[#1f2937] mb-2">Source Webserver URL</div>
-                <div className="text-sm text-[#374151] break-all mb-5">
-                  {selectedStatus?.latest_submission?.normalized_value || "Not submitted yet"}
-                </div>
+                <div className="px-6 py-5">
+                  <div className="text-[#0f172a] font-semibold text-lg mb-3">Inputs</div>
+                  <label className="block text-[#334155] text-sm font-medium mb-2">Server Address</label>
 
-                <form onSubmit={handleSubmitEndpoint} className="flex flex-col md:flex-row gap-3 md:items-center">
-                  <input
-                    type="url"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    placeholder="http://your-server-host:port"
-                    className="flex-1 border border-[#d1d5db] bg-[#ffffff] rounded-sm px-4 py-3 text-sm text-[#111827] focus:outline-none focus:border-[#60a5fa]"
-                    required
-                  />
-                  <button
-                    type="submit"
-                    disabled={submitting || !selectedModule}
-                    className="px-6 py-3 rounded-sm border border-[#60a5fa] text-[#2563eb] text-sm font-medium hover:bg-[#eff6ff] disabled:opacity-50"
-                  >
-                    {submitting ? "Submitting..." : "Submit URL"}
-                  </button>
-                </form>
-                {submitError && <p className="mt-3 text-sm text-[#dc2626]">{submitError}</p>}
-                {submitSuccess && <p className="mt-3 text-sm text-[#16a34a]">URL submitted successfully</p>}
+                  <form onSubmit={handleSubmitEndpoint} className="space-y-4">
+                    <input
+                      type="url"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      placeholder="http://your-server-host"
+                      className="w-full border border-[#d1d5db] bg-[#ffffff] rounded-md px-4 py-2.5 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#bfdbfe] focus:border-[#60a5fa]"
+                      required
+                    />
+                    <div className="rounded-md border border-[#e2e8f0] bg-[#f8fafc] px-3 py-2 text-sm break-all text-[#334155]">
+                      <span className="font-medium text-[#475569]">Current Value:</span>{" "}
+                      {selectedStatus?.latest_submission?.normalized_value || "Not set"}
+                    </div>
+                    <div className="pt-1 flex items-center gap-4">
+                      <button
+                        type="submit"
+                        disabled={submitting || !selectedModule}
+                        className="px-5 py-2.5 rounded-md bg-[#e2e8f0] text-[#1f2937] text-sm font-semibold hover:bg-[#cbd5e1] disabled:opacity-50"
+                      >
+                        {submitting ? "Updating..." : "Update"}
+                      </button>
+                    </div>
+                  </form>
+                  {submitError && <p className="mt-3 text-sm text-[#dc2626]">{submitError}</p>}
+                  {submitSuccess && <p className="mt-3 text-sm text-[#16a34a]">URL submitted successfully</p>}
+                </div>
               </section>
             </div>
           </>
@@ -213,6 +305,62 @@ export default function DashboardPage() {
           </section>
         )}
       </main>
+
+      {sharedModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="w-full max-w-3xl bg-[#ffffff] border border-[#d1d5db] rounded-lg shadow-lg overflow-hidden">
+            <div className="px-5 py-4 border-b border-[#d1d5db] flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-[#0f172a]">Shared Folder</h2>
+              <button
+                onClick={() => setSharedModalOpen(false)}
+                className="text-sm text-[#64748b] hover:text-[#0f172a]"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="p-5 max-h-[70vh] overflow-auto">
+              {sharedError && <p className="mb-4 text-sm text-[#dc2626]">{sharedError}</p>}
+              {sharedLoading ? (
+                <p className="text-sm text-[#64748b]">Loading files...</p>
+              ) : sharedFiles.length === 0 ? (
+                <p className="text-sm text-[#64748b]">No files uploaded by admin yet.</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-[#64748b] text-xs border-b border-[#d1d5db]">
+                      <th className="py-2 text-left">Filename</th>
+                      <th className="py-2 text-left">Type</th>
+                      <th className="py-2 text-right">Size</th>
+                      <th className="py-2 text-left">Uploaded</th>
+                      <th className="py-2 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sharedFiles.map((file) => (
+                      <tr key={file.id} className="border-b border-[#f1f5f9]">
+                        <td className="py-2 pr-2 text-[#0f172a]">{file.original_filename}</td>
+                        <td className="py-2 pr-2 text-[#64748b] text-xs">{file.mime_type}</td>
+                        <td className="py-2 pr-2 text-right font-mono text-[#334155]">{formatFileSize(file.file_size)}</td>
+                        <td className="py-2 pr-2 text-[#475569] text-xs">{new Date(file.uploaded_at).toLocaleString()}</td>
+                        <td className="py-2 text-right">
+                          <button
+                            onClick={() => void downloadSharedFile(file.id)}
+                            disabled={downloadingId === file.id}
+                            className="px-3 py-1.5 rounded border border-[#60a5fa] text-[#2563eb] hover:bg-[#eff6ff] text-xs disabled:opacity-60"
+                          >
+                            {downloadingId === file.id ? "Downloading..." : "Download"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

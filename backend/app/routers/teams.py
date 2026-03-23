@@ -36,6 +36,9 @@ async def get_current_team(
         event_status=event.status.value,
         event_start_time=event.start_time,
         event_end_time=event.end_time,
+        scoreboard_public=event.scoreboard_public,
+        root_url_detection_enabled=event.root_url_detection_enabled,
+        shared_folder_enabled=event.shared_folder_enabled,
         show_aws_console_button=event.show_aws_console_button,
         show_ssh_key_button=event.show_ssh_key_button,
     )

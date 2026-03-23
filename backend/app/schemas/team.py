@@ -33,5 +33,8 @@ class TeamDashboard(BaseModel):
     event_status: str
     event_start_time: Optional[datetime]
     event_end_time: Optional[datetime]
+    scoreboard_public: bool
+    root_url_detection_enabled: bool
+    shared_folder_enabled: bool
     show_aws_console_button: bool
     show_ssh_key_button: bool

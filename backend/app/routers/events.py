@@ -34,6 +34,8 @@ async def get_current_event(
         end_time=event.end_time,
         timezone=event.timezone,
         scoreboard_public=event.scoreboard_public,
+        root_url_detection_enabled=event.root_url_detection_enabled,
+        shared_folder_enabled=event.shared_folder_enabled,
         show_aws_console_button=event.show_aws_console_button,
         show_ssh_key_button=event.show_ssh_key_button,
         created_at=event.created_at,

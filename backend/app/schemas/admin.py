@@ -13,6 +13,8 @@ class AdminEventCreate(BaseModel):
     readme_markdown: Optional[str] = None
     runbook_markdown: Optional[str] = None
     scoreboard_public: bool = True
+    root_url_detection_enabled: bool = True
+    shared_folder_enabled: bool = True
     show_aws_console_button: bool = False
     show_ssh_key_button: bool = False
 
@@ -26,6 +28,8 @@ class AdminEventUpdate(BaseModel):
     readme_markdown: Optional[str] = None
     runbook_markdown: Optional[str] = None
     scoreboard_public: Optional[bool] = None
+    root_url_detection_enabled: Optional[bool] = None
+    shared_folder_enabled: Optional[bool] = None
     show_aws_console_button: Optional[bool] = None
     show_ssh_key_button: Optional[bool] = None
 
@@ -168,6 +172,8 @@ class AdminEventOut(BaseModel):
     end_time: Optional[datetime]
     timezone: str
     scoreboard_public: bool
+    root_url_detection_enabled: bool
+    shared_folder_enabled: bool
     show_aws_console_button: bool
     show_ssh_key_button: bool
     readme_markdown: Optional[str]

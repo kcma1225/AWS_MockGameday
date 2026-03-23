@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.config import settings
-from app.routers import auth, events, teams, modules, score_events, scoreboard, readme, admin, ws
+from app.routers import auth, events, teams, modules, score_events, scoreboard, readme, admin, ws, shared_folder
 
 
 @asynccontextmanager
@@ -60,6 +60,7 @@ app.include_router(score_events.router, prefix="/api/score-events", tags=["score
 app.include_router(scoreboard.router, prefix="/api/scoreboard", tags=["scoreboard"])
 app.include_router(readme.router, prefix="/api/readme", tags=["readme"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
+app.include_router(shared_folder.router, prefix="/api", tags=["shared-folder"])
 app.include_router(ws.router, tags=["websocket"])
 
 

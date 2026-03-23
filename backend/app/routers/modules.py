@@ -9,6 +9,7 @@ from app.deps import get_current_team_session
 from app.models.module import Module
 from app.models.submission import Submission, ValidationStatus
 from app.models.team import Team
+from app.models.event import Event
 from app.schemas.module import ModuleOut
 from app.schemas.submission import SubmissionIn, SubmissionOut, ModuleStatusOut
 from app.services.url_validator import validate_submission_url
@@ -68,8 +69,14 @@ async def submit_module(
     if not module:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Module not found")
 
-    # Validate URL for safety (SSRF protection)
-    is_valid, error_msg, normalized = validate_submission_url(body.url)
+    # Validate URL for safety (SSRF protection) and event-specific root-only rules.
+    event_result = await db.execute(select(Event).where(Event.id == team.event_id))
+    event = event_result.scalar_one()
+
+    is_valid, error_msg, normalized = validate_submission_url(
+        body.url,
+        enforce_root_only=event.root_url_detection_enabled,
+    )
     if not is_valid:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

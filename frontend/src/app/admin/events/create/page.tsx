@@ -28,8 +28,8 @@ interface EventForm {
   timezone: string;
   status: "draft" | "live";
   scoreboard_public: boolean;
-  show_aws_console_button: boolean;
-  show_ssh_key_button: boolean;
+  root_url_detection_enabled: boolean;
+  shared_folder_enabled: boolean;
 }
 
 function toDateTimeLocalValue(date: Date): string {
@@ -55,8 +55,8 @@ export default function AdminCreateEventPage() {
     timezone: "UTC",
     status: "draft",
     scoreboard_public: true,
-    show_aws_console_button: false,
-    show_ssh_key_button: false,
+    root_url_detection_enabled: true,
+    shared_folder_enabled: true,
   });
 
   // Step 2 — Content
@@ -105,8 +105,8 @@ export default function AdminCreateEventPage() {
         timezone: form.timezone,
         status: form.status,
         scoreboard_public: form.scoreboard_public,
-        show_aws_console_button: form.show_aws_console_button,
-        show_ssh_key_button: form.show_ssh_key_button,
+        root_url_detection_enabled: form.root_url_detection_enabled,
+        shared_folder_enabled: form.shared_folder_enabled,
       };
       if (form.start_time) eventPayload.start_time = new Date(form.start_time).toISOString();
       if (form.end_time) eventPayload.end_time = new Date(form.end_time).toISOString();
@@ -318,14 +318,14 @@ function StepBasicInfo({ form, setForm }: { form: EventForm; setForm: (f: EventF
           onChange={(v) => set("scoreboard_public", v)}
         />
         <CheckboxField
-          label="Show AWS Console button on dashboard"
-          checked={form.show_aws_console_button}
-          onChange={(v) => set("show_aws_console_button", v)}
+          label="Enable root URL detection (allow root URL only)"
+          checked={form.root_url_detection_enabled}
+          onChange={(v) => set("root_url_detection_enabled", v)}
         />
         <CheckboxField
-          label="Show SSH Key button on dashboard"
-          checked={form.show_ssh_key_button}
-          onChange={(v) => set("show_ssh_key_button", v)}
+          label="Enable shared folder (files for all teams)"
+          checked={form.shared_folder_enabled}
+          onChange={(v) => set("shared_folder_enabled", v)}
         />
       </div>
     </div>
@@ -411,6 +411,8 @@ function StepReview({
         <Row label="Teams to create" value={teamCount === 0 ? "None (add later)" : `${teamCount}`} />
         <Row label="Challenge Endpoint" value="Single default module (auto-created)" />
         <Row label="Scoreboard public" value={form.scoreboard_public ? "Yes" : "No"} />
+        <Row label="Root URL detection" value={form.root_url_detection_enabled ? "On" : "Off"} />
+        <Row label="Shared folder" value={form.shared_folder_enabled ? "On" : "Off"} />
       </div>
       <p className="text-[#64748b] text-xs mt-6">
         Login codes will be shown only once after creation. Make sure to save them.

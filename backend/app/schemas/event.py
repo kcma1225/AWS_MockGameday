@@ -28,6 +28,8 @@ class EventOut(BaseModel):
     end_time: Optional[datetime]
     timezone: str
     scoreboard_public: bool
+    root_url_detection_enabled: bool
+    shared_folder_enabled: bool
     show_aws_console_button: bool
     show_ssh_key_button: bool
     created_at: datetime

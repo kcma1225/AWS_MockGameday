@@ -1,7 +1,11 @@
 import Cookies from "js-cookie";
 
 const TOKEN_KEY = "gd_token";
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+if (!API_URL) {
+  throw new Error("Missing required env var NEXT_PUBLIC_API_URL");
+}
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;

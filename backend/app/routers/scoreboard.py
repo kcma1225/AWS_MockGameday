@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from datetime import datetime, timezone
@@ -20,6 +20,16 @@ async def get_scoreboard(
 ):
     team_result = await db.execute(select(Team).where(Team.id == session.team_id))
     team = team_result.scalar_one()
+
+    event_result = await db.execute(select(Event).where(Event.id == team.event_id))
+    event = event_result.scalar_one_or_none()
+    if not event:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+    if not event.scoreboard_public:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Scoreboard is not available for this event",
+        )
 
     # Get all teams in event
     teams_result = await db.execute(
