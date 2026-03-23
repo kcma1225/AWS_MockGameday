@@ -12,6 +12,7 @@ import {
   adminListSharedFiles,
   adminUploadSharedFile,
   adminDeleteSharedFile,
+  sharedFilePublicUrl,
 } from "@/lib/api";
 import { AdminEvent, SharedFolderFileItem } from "@/types";
 
@@ -29,6 +30,7 @@ export default function AdminEventSharedFolderPage() {
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!getAdminToken()) router.push("/admin");
@@ -66,6 +68,29 @@ export default function AdminEventSharedFolderPage() {
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+    }
+  }
+
+  async function handleCopyUrl(publicUrl: string) {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText && window.isSecureContext) {
+        await navigator.clipboard.writeText(`${publicUrl}`);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = `${publicUrl}`;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "absolute";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      const fileId = publicUrl.split("/").pop();
+      setCopiedId(fileId || null);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      alert("Failed to copy URL. Please try again.");
     }
   }
 
@@ -167,13 +192,35 @@ export default function AdminEventSharedFolderPage() {
                         <td className="px-4 py-2.5 text-right font-mono text-[#334155]">{formatFileSize(file.file_size)}</td>
                         <td className="px-4 py-2.5 text-[#475569] text-xs">{new Date(file.uploaded_at).toLocaleString()}</td>
                         <td className="px-4 py-2.5 text-right">
-                          <button
-                            onClick={() => void handleDeleteFile(file.id)}
-                            disabled={deletingId === file.id}
-                            className="text-xs px-3 py-1 border border-[#f87171] hover:bg-[#fff1f2] text-[#dc2626] rounded transition-colors disabled:opacity-60"
-                          >
-                            {deletingId === file.id ? "Deleting..." : "Delete"}
-                          </button>
+                          <div className="inline-flex items-center gap-2">
+                            <a
+                              href={`${sharedFilePublicUrl(file.public_url)}?download=true`}
+                              className="text-xs px-3 py-1 border border-[#60a5fa] hover:bg-[#eff6ff] text-[#2563eb] rounded transition-colors"
+                            >
+                              Download
+                            </a>
+                            <button
+                              onClick={() => handleCopyUrl(sharedFilePublicUrl(file.public_url))}
+                              className="text-xs px-3 py-1 border border-[#10b981] hover:bg-[#f0fdf4] text-[#059669] rounded transition-colors"
+                            >
+                              {copiedId === file.id ? "Copied!" : "Copy"}
+                            </button>
+                            <a
+                              href={sharedFilePublicUrl(file.public_url)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs px-3 py-1 border border-[#94a3b8] hover:bg-[#f8fafc] text-[#334155] rounded transition-colors"
+                            >
+                              URL
+                            </a>
+                            <button
+                              onClick={() => void handleDeleteFile(file.id)}
+                              disabled={deletingId === file.id}
+                              className="text-xs px-3 py-1 border border-[#f87171] hover:bg-[#fff1f2] text-[#dc2626] rounded transition-colors disabled:opacity-60"
+                            >
+                              {deletingId === file.id ? "Deleting..." : "Delete"}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

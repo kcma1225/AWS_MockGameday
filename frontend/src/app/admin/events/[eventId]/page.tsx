@@ -12,6 +12,7 @@ import {
   adminGetTeams,
   adminCreateTeams,
   adminUpdateTeam,
+  adminDeleteTeam,
   adminEventAction,
   adminDeleteEvent,
   adminGetChallengeRounds,
@@ -404,12 +405,6 @@ function TriggerPanel({ eventId }: { eventId: string }) {
             </tbody>
           </table>
         </div>
-
-        <div>
-          <p className="px-5 py-3 text-[#64748b] text-xs border-t border-[#d1d5db] bg-[#f8fafc]">
-            Trigger dispatches requests for all active teams and active modules using the selected round configuration.
-          </p>
-        </div>
       </div>
 
       {result && (
@@ -419,7 +414,12 @@ function TriggerPanel({ eventId }: { eventId: string }) {
       )}
 
       {modalOpen && (
-        <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center px-4">
+        <div
+          className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center px-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeModal();
+          }}
+        >
           <div className="w-full max-w-lg bg-[#ffffff] rounded-lg border border-[#d1d5db] shadow-2xl">
             <div className="px-5 py-4 border-b border-[#d1d5db] flex items-center justify-between">
               <h3 className="text-[#0f172a] text-sm font-semibold">
@@ -427,10 +427,11 @@ function TriggerPanel({ eventId }: { eventId: string }) {
               </h3>
               <button
                 onClick={closeModal}
-                className="text-[#64748b] hover:text-[#0f172a] text-sm"
                 disabled={submittingModal}
+                className="text-[#dc2626] hover:text-[#991b1b] text-xl font-bold leading-none w-6 h-6 flex items-center justify-center rounded hover:bg-[#fee2e2] transition-colors disabled:opacity-50"
+                title="Close"
               >
-                Close
+                ×
               </button>
             </div>
 
@@ -519,12 +520,30 @@ function TeamsPanel({
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [savingTeamId, setSavingTeamId] = useState<string | null>(null);
+  const [deletingTeamId, setDeletingTeamId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  function handleCopyCode(teamId: string, code: string) {
-    navigator.clipboard.writeText(code);
-    setCopiedId(teamId);
-    setTimeout(() => setCopiedId(null), 2000);
+  async function handleCopyCode(teamId: string, code: string) {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText && window.isSecureContext) {
+        await navigator.clipboard.writeText(code);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = code;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "absolute";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+
+      setCopiedId(teamId);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      alert("Copy failed. Please copy the code manually.");
+    }
   }
 
   async function handleAddTeams() {
@@ -588,6 +607,32 @@ function TeamsPanel({
     }
   }
 
+  async function handleDeleteTeam(teamId: string) {
+    if (!confirm("Delete this team? This cannot be undone.")) {
+      return;
+    }
+
+    setDeletingTeamId(teamId);
+    try {
+      await adminDeleteTeam(eventId, teamId);
+      setNewCodes((prev) => {
+        const next = { ...prev };
+        delete next[teamId];
+        return next;
+      });
+      if (editingTeamId === teamId) {
+        setEditingTeamId(null);
+        setEditingName("");
+      }
+      await mutateTeams();
+      mutateEvent();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete team");
+    } finally {
+      setDeletingTeamId(null);
+    }
+  }
+
   return (
     <>
       <div className="bg-[#ffffff] border border-[#d1d5db] rounded-lg overflow-hidden">
@@ -606,13 +651,13 @@ function TeamsPanel({
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead>
+              <thead className="bg-[#f8fafc] border-b border-[#d1d5db]">
                 <tr className="text-[#64748b] text-xs border-b border-[#d1d5db]">
                   <th className="px-4 py-2.5 text-left">Team Name</th>
                   <th className="px-4 py-2.5 text-left">Team ID</th>
                   <th className="px-4 py-2.5 text-left">Score</th>
-                  <th className="px-4 py-2.5 text-left">Login Code</th>
-                  <th className="px-4 py-2.5 text-left">Actions</th>
+                  <th className="px-4 py-2.5">Login Code</th>
+                  <th className="px-4 py-2.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -654,7 +699,7 @@ function TeamsPanel({
                       <td className="px-4 py-2.5 text-[#475569] font-mono text-xs">{team.public_team_id}</td>
                       <td className="px-4 py-2.5 text-[#0f172a]">{Number(team.score_total ?? 0).toFixed(4)}</td>
                       <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 justify-end">
                           <span className={`font-mono text-sm font-bold tracking-wider ${isNew ? "text-[#facc15]" : "text-[#4ade80]"}`}>
                             {displayCode ?? <span className="text-[#64748b] text-xs italic">not available (regenerate)</span>}
                           </span>
@@ -673,7 +718,7 @@ function TeamsPanel({
                         </div>
                       </td>
                       <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 justify-end">
                           {!isEditing && (
                             <button
                               onClick={() => {
@@ -692,6 +737,13 @@ function TeamsPanel({
                           >
                             {regeneratingId === team.id ? "..." : "Regen Code"}
                           </button>
+                          <button
+                            onClick={() => handleDeleteTeam(team.id)}
+                            disabled={deletingTeamId === team.id}
+                            className="text-xs px-3 py-1 border border-[#fecaca] rounded text-[#dc2626] hover:bg-[#fff1f2] disabled:opacity-50"
+                          >
+                            {deletingTeamId === team.id ? "Deleting..." : "Delete"}
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -704,15 +756,21 @@ function TeamsPanel({
       </div>
 
       {isAddOpen && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50">
+        <div
+          className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsAddOpen(false);
+          }}
+        >
           <div className="w-full max-w-lg bg-[#ffffff] border border-[#d1d5db] rounded-lg shadow-xl">
             <div className="px-5 py-4 border-b border-[#d1d5db] flex items-center justify-between">
               <h3 className="text-[#0f172a] font-semibold text-base">Add Teams</h3>
               <button
                 onClick={() => setIsAddOpen(false)}
-                className="text-[#64748b] hover:text-[#0f172a] text-sm"
+                className="text-[#dc2626] hover:text-[#991b1b] text-xl font-bold leading-none w-6 h-6 flex items-center justify-center rounded hover:bg-[#fee2e2] transition-colors"
+                title="Close"
               >
-                Close
+                ×
               </button>
             </div>
             <div className="p-5 space-y-4">

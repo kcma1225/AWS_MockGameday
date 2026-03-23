@@ -29,6 +29,13 @@ export async function adminLogin(login: string, password: string) {
   return res.json();
 }
 
+export function sharedFilePublicUrl(path: string): string {
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
+  return `${API_URL}${path}`;
+}
+
 export async function logout() {
   await fetchWithAuth("/api/auth/logout", { method: "POST" });
 }
@@ -222,6 +229,17 @@ export async function adminRegenerateCode(eventId: string, teamId: string) {
     method: "POST",
   });
   if (!res.ok) throw new Error("Failed to regenerate code");
+  return res.json();
+}
+
+export async function adminDeleteTeam(eventId: string, teamId: string) {
+  const res = await adminFetch(`/api/admin/events/${eventId}/teams/${teamId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to delete team");
+  }
   return res.json();
 }
 

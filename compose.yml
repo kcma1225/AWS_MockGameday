@@ -31,6 +31,7 @@ services:
       DATABASE_URL: ${DATABASE_URL_DOCKER}
       SYNC_DATABASE_URL: ${SYNC_DATABASE_URL_DOCKER}
       REDIS_URL: ${REDIS_URL_DOCKER}
+      SHARED_FOLDERS_DIR: ${SHARED_FOLDERS_DIR_DOCKER}
     depends_on:
       db:
         condition: service_healthy
@@ -38,6 +39,7 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
+      - shared_folders_data:${SHARED_FOLDERS_DIR_DOCKER}
     command: >
       sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
@@ -51,6 +53,7 @@ services:
       DATABASE_URL: ${DATABASE_URL_DOCKER}
       SYNC_DATABASE_URL: ${SYNC_DATABASE_URL_DOCKER}
       REDIS_URL: ${REDIS_URL_DOCKER}
+      SHARED_FOLDERS_DIR: ${SHARED_FOLDERS_DIR_DOCKER}
     depends_on:
       db:
         condition: service_healthy
@@ -70,6 +73,7 @@ services:
       DATABASE_URL: ${DATABASE_URL_DOCKER}
       SYNC_DATABASE_URL: ${SYNC_DATABASE_URL_DOCKER}
       REDIS_URL: ${REDIS_URL_DOCKER}
+      SHARED_FOLDERS_DIR: ${SHARED_FOLDERS_DIR_DOCKER}
     depends_on:
       db:
         condition: service_healthy
@@ -104,3 +108,4 @@ services:
 
 volumes:
   postgres_data:
+  shared_folders_data:

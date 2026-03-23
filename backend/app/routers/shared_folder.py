@@ -1,27 +1,26 @@
 """Shared folder API - admin uploads, team downloads."""
 
-import os
 import secrets
 import mimetypes
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from uuid import UUID
-from typing import List
 
+from app.config import settings
 from app.database import get_db
 from app.deps import get_current_admin, get_current_team_session
 from app.models.event import Event
 from app.models.team import Team
-from app.models.admin_user import AdminUser
 from app.models.event import SharedFolderFile
 
 router = APIRouter()
 
 # Shared folder storage path
-SHARED_FOLDERS_DIR = Path("shared_folders")
-SHARED_FOLDERS_DIR.mkdir(exist_ok=True)
+SHARED_FOLDERS_DIR = Path(settings.SHARED_FOLDERS_DIR)
+SHARED_FOLDERS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def get_event_folder(event_id: str) -> Path:
@@ -29,6 +28,65 @@ def get_event_folder(event_id: str) -> Path:
     folder = SHARED_FOLDERS_DIR / str(event_id)
     folder.mkdir(parents=True, exist_ok=True)
     return folder
+
+
+def get_public_file_url(event_id: UUID, original_filename: str) -> str:
+    return f"/api/shared-folder/public/{event_id}/{original_filename}"
+
+
+def serialize_shared_file(file: SharedFolderFile) -> dict:
+    return {
+        "id": str(file.id),
+        "original_filename": file.original_filename,
+        "file_size": file.file_size,
+        "mime_type": file.mime_type,
+        "uploaded_at": file.uploaded_at.isoformat(),
+        "public_url": get_public_file_url(file.event_id, file.original_filename),
+    }
+
+
+def should_render_inline(mime_type: str) -> bool:
+    text_like_types = {
+        "application/json",
+        "application/xml",
+        "application/x-yaml",
+        "application/yaml",
+        "application/javascript",
+    }
+    return mime_type.startswith("text/") or mime_type in text_like_types
+
+
+async def deduplicate_filename(event_id: UUID, original_filename: str, db: AsyncSession) -> str:
+    """
+    If a file with the same name exists, return a new name like <filename>(2).
+    """
+    # Check if filename already exists
+    existing = await db.execute(
+        select(SharedFolderFile).where(
+            SharedFolderFile.event_id == event_id,
+            SharedFolderFile.original_filename == original_filename,
+        )
+    )
+    if not existing.scalar_one_or_none():
+        return original_filename
+    
+    # Generate deduplicated name: filename(2), filename(3), etc.
+    name_parts = Path(original_filename)
+    stem = name_parts.stem
+    suffix = name_parts.suffix
+    
+    counter = 2
+    while True:
+        new_name = f"{stem}({counter}){suffix}"
+        existing = await db.execute(
+            select(SharedFolderFile).where(
+                SharedFolderFile.event_id == event_id,
+                SharedFolderFile.original_filename == new_name,
+            )
+        )
+        if not existing.scalar_one_or_none():
+            return new_name
+        counter += 1
 
 
 # ---- Admin: Upload and Manage ----
@@ -76,6 +134,10 @@ async def upload_shared_file(
     stored_filename = f"{secrets.token_hex(16)}{file_extension}"
     mime_type = file.content_type or mimetypes.guess_type(file.filename or "")[0] or "application/octet-stream"
 
+    # Deduplicate original filename
+    original_fname = file.filename or "file"
+    deduplicated_fname = await deduplicate_filename(event_id, original_fname, db)
+
     # Save file
     event_folder = get_event_folder(str(event_id))
     file_path = event_folder / stored_filename
@@ -85,7 +147,7 @@ async def upload_shared_file(
     # Record in database
     db_file = SharedFolderFile(
         event_id=event_id,
-        original_filename=file.filename or "file",
+        original_filename=deduplicated_fname,
         stored_filename=stored_filename,
         file_size=len(contents),
         mime_type=mime_type,
@@ -100,6 +162,7 @@ async def upload_shared_file(
         "file_size": db_file.file_size,
         "mime_type": db_file.mime_type,
         "uploaded_at": db_file.uploaded_at.isoformat(),
+        "public_url": get_public_file_url(db_file.event_id, db_file.original_filename),
     }
 
 
@@ -124,16 +187,7 @@ async def list_shared_files(
     )
     files = files_result.scalars().all()
 
-    return [
-        {
-            "id": str(f.id),
-            "original_filename": f.original_filename,
-            "file_size": f.file_size,
-            "mime_type": f.mime_type,
-            "uploaded_at": f.uploaded_at.isoformat(),
-        }
-        for f in files
-    ]
+    return [serialize_shared_file(f) for f in files]
 
 
 @router.delete("/admin/events/{event_id}/shared-folder/files/{file_id}")
@@ -196,14 +250,7 @@ async def team_list_shared_files(
 
     return {
         "files": [
-            {
-                "id": str(f.id),
-                "original_filename": f.original_filename,
-                "file_size": f.file_size,
-                "mime_type": f.mime_type,
-                "uploaded_at": f.uploaded_at.isoformat(),
-            }
-            for f in files
+            serialize_shared_file(f) for f in files
         ]
     }
 
@@ -271,4 +318,52 @@ async def team_download_shared_file_content(
         file_path,
         filename=db_file.original_filename,
         media_type=db_file.mime_type,
+    )
+
+
+@router.get("/shared-folder/public/{event_id}/{filename}")
+async def public_shared_file_content(
+    event_id: UUID,
+    filename: str,
+    download: bool = False,
+    db: AsyncSession = Depends(get_db),
+):
+    """Public URL for shared file content.
+
+    - text/json/xml/yaml/javascript are rendered inline by default.
+    - images and other binary files are forced to download.
+    - ?download=true forces download for all file types.
+    """
+    file_result = await db.execute(
+        select(SharedFolderFile).where(
+            SharedFolderFile.event_id == event_id,
+            SharedFolderFile.original_filename == filename,
+        )
+    )
+    db_file = file_result.scalar_one_or_none()
+    if not db_file:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+
+    event_result = await db.execute(select(Event).where(Event.id == db_file.event_id))
+    event = event_result.scalar_one_or_none()
+    if not event or not event.shared_folder_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not available")
+
+    event_folder = get_event_folder(str(db_file.event_id))
+    file_path = event_folder / db_file.stored_filename
+    if not file_path.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found on disk")
+
+    inline = should_render_inline(db_file.mime_type)
+    if download:
+        disposition = f'attachment; filename="{db_file.original_filename}"'
+    elif inline:
+        disposition = f'inline; filename="{db_file.original_filename}"'
+    else:
+        disposition = f'attachment; filename="{db_file.original_filename}"'
+
+    return FileResponse(
+        file_path,
+        media_type=db_file.mime_type,
+        headers={"Content-Disposition": disposition},
     )

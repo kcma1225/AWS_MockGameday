@@ -556,6 +556,25 @@ async def update_team(
     return {"id": str(team.id), "is_active": team.is_active}
 
 
+@router.delete("/events/{event_id}/teams/{team_id}")
+async def delete_team(
+    event_id: UUID,
+    team_id: UUID,
+    admin=Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Team).where(Team.id == team_id, Team.event_id == event_id)
+    )
+    team = result.scalar_one_or_none()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    await db.delete(team)
+
+    return {"status": "deleted", "id": str(team_id)}
+
+
 # -------------------------
 # Module management
 # -------------------------

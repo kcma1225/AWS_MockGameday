@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str
 
+    # Storage
+    SHARED_FOLDERS_DIR: str
+
     # Security
     SECRET_KEY: str
     ADMIN_SECRET_KEY: str

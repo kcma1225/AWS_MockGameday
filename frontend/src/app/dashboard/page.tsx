@@ -16,6 +16,7 @@ import {
   submitModuleUrl,
   teamListSharedFiles,
   teamDownloadSharedFileContent,
+  sharedFilePublicUrl,
 } from "@/lib/api";
 import { isRootUrl } from "@/lib/url";
 import { TeamDashboard, Module, ModuleStatus, WSMessage, SharedFolderFileItem, TeamSharedFilesResponse } from "@/types";
@@ -32,6 +33,7 @@ export default function DashboardPage() {
   const [sharedLoading, setSharedLoading] = useState(false);
   const [sharedError, setSharedError] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -146,6 +148,28 @@ export default function DashboardPage() {
       setSharedError(err instanceof Error ? err.message : "Failed to load shared files");
     } finally {
       setSharedLoading(false);
+    }
+  }
+
+  async function handleCopyUrl(publicUrl: string, fileId: string) {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText && window.isSecureContext) {
+        await navigator.clipboard.writeText(`${publicUrl}`);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = `${publicUrl}`;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "absolute";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      setCopiedId(fileId);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      alert("Failed to copy URL. Please try again.");
     }
   }
 
@@ -307,15 +331,21 @@ export default function DashboardPage() {
       </main>
 
       {sharedModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+        <div
+          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSharedModalOpen(false);
+          }}
+        >
           <div className="w-full max-w-3xl bg-[#ffffff] border border-[#d1d5db] rounded-lg shadow-lg overflow-hidden">
             <div className="px-5 py-4 border-b border-[#d1d5db] flex items-center justify-between">
               <h2 className="text-lg font-semibold text-[#0f172a]">Shared Folder</h2>
               <button
                 onClick={() => setSharedModalOpen(false)}
-                className="text-sm text-[#64748b] hover:text-[#0f172a]"
+                className="text-[#dc2626] hover:text-[#991b1b] text-xl font-bold leading-none w-6 h-6 flex items-center justify-center rounded hover:bg-[#fee2e2] transition-colors"
+                title="Close"
               >
-                Close
+                ×
               </button>
             </div>
 
@@ -344,13 +374,29 @@ export default function DashboardPage() {
                         <td className="py-2 pr-2 text-right font-mono text-[#334155]">{formatFileSize(file.file_size)}</td>
                         <td className="py-2 pr-2 text-[#475569] text-xs">{new Date(file.uploaded_at).toLocaleString()}</td>
                         <td className="py-2 text-right">
-                          <button
-                            onClick={() => void downloadSharedFile(file.id)}
-                            disabled={downloadingId === file.id}
-                            className="px-3 py-1.5 rounded border border-[#60a5fa] text-[#2563eb] hover:bg-[#eff6ff] text-xs disabled:opacity-60"
-                          >
-                            {downloadingId === file.id ? "Downloading..." : "Download"}
-                          </button>
+                          <div className="inline-flex items-center gap-2">
+                            <button
+                              onClick={() => void downloadSharedFile(file.id)}
+                              disabled={downloadingId === file.id}
+                              className="px-3 py-1.5 rounded border border-[#60a5fa] text-[#2563eb] hover:bg-[#eff6ff] text-xs disabled:opacity-60"
+                            >
+                              {downloadingId === file.id ? "Downloading..." : "Download"}
+                            </button>
+                            <button
+                              onClick={() => handleCopyUrl(sharedFilePublicUrl(file.public_url), file.id)}
+                              className="px-3 py-1.5 rounded border border-[#10b981] text-[#059669] hover:bg-[#f0fdf4] text-xs"
+                            >
+                              {copiedId === file.id ? "Copied!" : "Copy"}
+                            </button>
+                            <a
+                              href={sharedFilePublicUrl(file.public_url)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-3 py-1.5 rounded border border-[#94a3b8] text-[#334155] hover:bg-[#f8fafc] text-xs"
+                            >
+                              URL
+                            </a>
+                          </div>
                         </td>
                       </tr>
                     ))}
