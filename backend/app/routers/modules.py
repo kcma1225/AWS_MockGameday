@@ -83,33 +83,33 @@ async def submit_module(
             detail=f"Invalid URL: {error_msg}",
         )
 
-    # Check for duplicate submission (idempotency)
+    # Replace any existing submission for this team+module with the new one
+    # This allows teams to update their URL without restrictions
     existing_result = await db.execute(
         select(Submission).where(
             Submission.team_id == team.id,
             Submission.module_id == module_id,
-            Submission.normalized_value == normalized,
         )
     )
     existing = existing_result.scalar_one_or_none()
+    
     if existing:
-        return SubmissionOut(
-            id=str(existing.id),
-            module_id=str(existing.module_id),
-            input_value=existing.input_value,
-            normalized_value=existing.normalized_value,
-            validation_status=existing.validation_status.value,
-            submitted_at=existing.submitted_at,
+        # Update the existing submission with new URL
+        existing.input_value = body.url
+        existing.normalized_value = normalized
+        existing.validation_status = ValidationStatus.accepted
+        submission = existing
+    else:
+        # Create new submission if none exists
+        submission = Submission(
+            team_id=team.id,
+            module_id=module_id,
+            input_value=body.url,
+            normalized_value=normalized,
+            validation_status=ValidationStatus.accepted,
         )
-
-    submission = Submission(
-        team_id=team.id,
-        module_id=module_id,
-        input_value=body.url,
-        normalized_value=normalized,
-        validation_status=ValidationStatus.accepted,
-    )
-    db.add(submission)
+        db.add(submission)
+    
     await db.flush()
 
     return SubmissionOut(

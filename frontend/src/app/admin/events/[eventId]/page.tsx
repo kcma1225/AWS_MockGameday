@@ -24,11 +24,13 @@ import {
   adminRegenerateCode,
 } from "@/lib/api";
 import { AdminChallengeRoundsResponse, AdminChallengeTriggerResponse, AdminTestingRound, AdminEvent, AdminTeam } from "@/types";
+import { EventConfigPanel } from "@/components/admin/EventConfigPanel";
 
 export default function AdminEventDetailPage() {
   const params = useParams<{ eventId: string }>();
   const eventId = params?.eventId;
   const router = useRouter();
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
 
   useEffect(() => {
     if (!getAdminToken()) router.push("/admin");
@@ -108,9 +110,23 @@ export default function AdminEventDetailPage() {
               </>
             )}
           </div>
-          <button onClick={handleLogout} className="text-[#475569] hover:text-[#f87171] text-xs uppercase tracking-wide transition-colors">
-            Logout
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIsConfigOpen(true)}
+              disabled={!event}
+              className="flex items-center gap-2 text-[#475569] hover:text-[#0f172a] disabled:text-[#94a3b8] disabled:cursor-not-allowed text-xs uppercase tracking-wide transition-colors"
+              title="Event Setting"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="1" />
+                <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m3.08 3.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m3.08-3.08l4.24-4.24" />
+              </svg>
+              Setting
+            </button>
+            <button onClick={handleLogout} className="text-[#475569] hover:text-[#f87171] text-xs uppercase tracking-wide transition-colors">
+              Logout
+            </button>
+          </div>
         </div>
       </nav>
 
@@ -139,6 +155,39 @@ export default function AdminEventDetailPage() {
           </div>
         )}
       </main>
+
+      {isConfigOpen && event && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center px-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsConfigOpen(false);
+          }}
+        >
+          <div className="w-full max-w-2xl bg-[#ffffff] rounded-lg border border-[#d1d5db] shadow-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-[#d1d5db] flex items-center justify-between">
+              <h3 className="text-[#0f172a] text-sm font-semibold flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="1" />
+                  <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m3.08 3.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m3.08-3.08l4.24-4.24" />
+                </svg>
+                Event Setting
+              </h3>
+              <button
+                onClick={() => setIsConfigOpen(false)}
+                className="text-[#dc2626] hover:text-[#991b1b] text-xl font-bold leading-none w-6 h-6 flex items-center justify-center rounded hover:bg-[#fee2e2] transition-colors"
+                title="Close"
+              >
+                ×
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[calc(100vh-200px)]">
+              <div className="-m-0">
+                <EventConfigPanel eventId={eventId} event={event} mutateEvent={mutateEvent} isModal={true} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
